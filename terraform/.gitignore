@@ -1,0 +1,14 @@
+# Terraform state — NUNCA subir a git (contiene valores sensibles)
+*.tfstate
+*.tfstate.backup
+*.tfstate.lock.info
+.terraform/
+.terraform.lock.hcl
+
+# Variables con secretos — NUNCA subir a git
+terraform.tfvars
+*.auto.tfvars
+
+# Outputs con secretos
+terraform.tfplan
+crash.log

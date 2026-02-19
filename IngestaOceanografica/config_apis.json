@@ -1,0 +1,394 @@
+{
+  "metadata": {
+    "proyecto": "Eco Azul - Pesca Artesanal Panamá",
+    "version": "1.0",
+    "fecha_creacion": "2025-12-02",
+    "offset_bbox": 0.25,
+    "descripcion_offset": "±15"
+  },
+  
+  "apis": {
+    "stormglass": {
+      "base_url": "https://api.stormglass.io/v2/weather/point",
+      "api_key_vault_name": "stormglass-api-key",
+      "parametros": "waveHeight,wavePeriod,waveDirection,swellHeight,swellDirection,swellPeriod,windSpeed,windDirection,airTemperature,pressure,precipitation,cloudCover,gust,visibility",
+      "source": "sg",
+      "forecast_horas": 48,
+      "timeout_segundos": 30,
+      "rate_limit": "Sin límite documentado"
+    },
+    
+    "marea": {
+      "base_url": "https://api.marea.ooo/v1/tides",
+      "api_key_vault_name": "marea-api-token",
+      "header_auth": "x-marea-api-token",
+      "duracion_minutos": 2880,
+      "intervalo_minutos": 60,
+      "timeout_segundos": 30,
+      "rate_limit": "Sin límite documentado"
+    }
+  },
+  
+   "puntos_muestreo": [
+    {
+      "id": "BT01_costa_izq",
+      "zona_id": "BT01",
+      "zona_nombre": "Bocas del Toro",
+      "tipo_punto": "costa_izquierda",
+      "lat": 9.4828293,
+      "lng": -82.2362236,
+      "provincias": "Bocas del Toro",
+      "region": "Caribe",
+      "activo": true
+    },
+    {
+      "id": "BT01_costa_der",
+      "zona_id": "BT01",
+      "zona_nombre": "Bocas del Toro",
+      "tipo_punto": "costa_derecha",
+      "lat": 9.3744035,
+      "lng": -82.0566162,
+      "provincias": "Bocas del Toro",
+      "region": "Caribe",
+      "activo": true
+    },
+    {
+      "id": "BT01_interior",
+      "zona_id": "BT01",
+      "zona_nombre": "Bocas del Toro",
+      "tipo_punto": "interior",
+      "lat": 9.4602186,
+      "lng": -82.1302626,
+      "provincias": "Bocas del Toro",
+      "region": "Caribe",
+      "activo": true
+    },
+    
+    {
+      "id": "CO01_costa_izq",
+      "zona_id": "CO01",
+      "zona_nombre": "Costa Abajo Colon",
+      "tipo_punto": "costa_izquierda",
+      "lat": 9.2405203,
+      "lng": -80.2935148,
+      "provincias": "Colon",
+      "region": "Caribe",
+      "activo": true
+    },
+    {
+      "id": "CO01_costa_der",
+      "zona_id": "CO01",
+      "zona_nombre": "Costa Abajo Colon",
+      "tipo_punto": "costa_derecha",
+      "lat": 9.2974228,
+      "lng": -80.1366976,
+      "provincias": "Colon",
+      "region": "Caribe",
+      "activo": true
+    },
+    {
+      "id": "CO01_interior",
+      "zona_id": "CO01",
+      "zona_nombre": "Costa Abajo Colon",
+      "tipo_punto": "interior",
+      "lat": 9.2474342,
+      "lng": -80.2010299,
+      "provincias": "Colon",
+      "region": "Caribe",
+      "activo": true
+    },
+    
+    {
+      "id": "GG01_costa_izq",
+      "zona_id": "GG01",
+      "zona_nombre": "Golfo de Panama",
+      "tipo_punto": "costa_izquierda",
+      "lat": 8.7139604,
+      "lng": -79.6939516,
+      "provincias": "Panama",
+      "region": "Pacifico",
+      "activo": true
+    },
+    {
+      "id": "GG01_costa_der",
+      "zona_id": "GG01",
+      "zona_nombre": "Golfo de Panama",
+      "tipo_punto": "costa_derecha",
+      "lat": 8.8198744,
+      "lng": -79.652834,
+      "provincias": "Panama",
+      "region": "Pacifico",
+      "activo": true
+    },
+    {
+      "id": "GG01_interior",
+      "zona_id": "GG01",
+      "zona_nombre": "Golfo de Panama",
+      "tipo_punto": "interior",
+      "lat": 8.7709209,
+      "lng": -79.7065234,
+      "provincias": "Panama",
+      "region": "Pacifico",
+      "activo": true
+    },
+    
+    {
+      "id": "PVX01_costa_izq",
+      "zona_id": "PVX01",
+      "zona_nombre": "Pixvae",
+      "tipo_punto": "costa_izquierda",
+      "lat": 7.8689798,
+      "lng": -81.6391009,
+      "provincias": "Veraguas",
+      "region": "Pacifico",
+      "activo": true
+    },
+    {
+      "id": "PVX01_costa_der",
+      "zona_id": "PVX01",
+      "zona_nombre": "Pixvae",
+      "tipo_punto": "costa_derecha",
+      "lat": 7.780237,
+      "lng": -81.6215015,
+      "provincias": "Veraguas",
+      "region": "Pacifico",
+      "activo": true
+    },
+    {
+      "id": "PVX01_interior",
+      "zona_id": "PVX01",
+      "zona_nombre": "Pixvae",
+      "tipo_punto": "interior",
+      "lat": 7.8219782,
+      "lng": -81.6399999,
+      "provincias": "Veraguas",
+      "region": "Pacifico",
+      "activo": true
+    },
+    
+    {
+      "id": "BH01_costa_izq",
+      "zona_id": "BH01",
+      "zona_nombre": "Bahia Honda",
+      "tipo_punto": "costa_izquierda",
+      "lat": 7.6851636,
+      "lng": -81.5593949,
+      "provincias": "Veraguas",
+      "region": "Pacifico",
+      "activo": true
+    },
+    {
+      "id": "BH01_costa_der",
+      "zona_id": "BH01",
+      "zona_nombre": "Bahia Honda",
+      "tipo_punto": "costa_derecha",
+      "lat": 7.6016801,
+      "lng": -81.3926213,
+      "provincias": "Veraguas",
+      "region": "Pacifico",
+      "activo": true
+    },
+    {
+      "id": "BH01_interior",
+      "zona_id": "BH01",
+      "zona_nombre": "Bahia Honda",
+      "tipo_punto": "interior",
+      "lat": 7.658266,
+      "lng": -81.4648498,
+      "provincias": "Veraguas",
+      "region": "Pacifico",
+      "activo": true
+    },
+    
+    {
+      "id": "GM01_costa_izq",
+      "zona_id": "GM01",
+      "zona_nombre": "Golfo Montijo",
+      "tipo_punto": "costa_izquierda",
+      "lat": 7.4005723,
+      "lng": -81.2790879,
+      "provincias": "Veraguas",
+      "region": "Pacifico",
+      "activo": true
+    },
+    {
+      "id": "GM01_costa_der",
+      "zona_id": "GM01",
+      "zona_nombre": "Golfo Montijo",
+      "tipo_punto": "costa_derecha",
+      "lat": 7.4270038,
+      "lng": -81.0199573,
+      "provincias": "Veraguas",
+      "region": "Pacifico",
+      "activo": true
+    },
+    {
+      "id": "GM01_interior",
+      "zona_id": "GM01",
+      "zona_nombre": "Golfo Montijo",
+      "tipo_punto": "interior",
+      "lat": 7.6124596,
+      "lng": -81.1186263,
+      "provincias": "Veraguas",
+      "region": "Pacifico",
+      "activo": true
+    },
+    
+    {
+      "id": "PD01_costa_izq",
+      "zona_id": "PD01",
+      "zona_nombre": "Pedasi",
+      "tipo_punto": "costa_izquierda",
+      "lat": 7.3765061,
+      "lng": -80.1052807,
+      "provincias": "Los Santos",
+      "region": "Pacifico",
+      "activo": true
+    },
+    {
+      "id": "PD01_costa_der",
+      "zona_id": "PD01",
+      "zona_nombre": "Pedasi",
+      "tipo_punto": "costa_derecha",
+      "lat": 7.4120035,
+      "lng": -79.9872593,
+      "provincias": "Los Santos",
+      "region": "Pacifico",
+      "activo": true
+    },
+    {
+      "id": "PD01_interior",
+      "zona_id": "PD01",
+      "zona_nombre": "Pedasi",
+      "tipo_punto": "interior",
+      "lat": 7.41849,
+      "lng": -80.0594885,
+      "provincias": "Los Santos",
+      "region": "Pacifico",
+      "activo": true
+    },
+    
+    {
+      "id": "GP01_costa_izq",
+      "zona_id": "GP01",
+      "zona_nombre": "Bahia de Parita",
+      "tipo_punto": "costa_izquierda",
+      "lat": 8.0355024,
+      "lng": -80.3084612,
+      "provincias": "Herrera",
+      "region": "Pacifico",
+      "activo": true
+    },
+    {
+      "id": "GP01_costa_der",
+      "zona_id": "GP01",
+      "zona_nombre": "Bahia de Parita",
+      "tipo_punto": "costa_derecha",
+      "lat": 8.1807817,
+      "lng": -80.1962783,
+      "provincias": "Herrera",
+      "region": "Pacifico",
+      "activo": true
+    },
+    {
+      "id": "GP01_interior",
+      "zona_id": "GP01",
+      "zona_nombre": "Bahia de Parita",
+      "tipo_punto": "interior",
+      "lat": 8.1674007,
+      "lng": -80.3333963,
+      "provincias": "Herrera",
+      "region": "Pacifico",
+      "activo": true
+    },
+    
+    {
+      "id": "PCH01_costa_izq",
+      "zona_id": "PCH01",
+      "zona_nombre": "Punta Chame",
+      "tipo_punto": "costa_izquierda",
+      "lat": 8.5672278,
+      "lng": -79.7270409,
+      "provincias": "Panama Oeste",
+      "region": "Pacifico",
+      "activo": true
+    },
+    {
+      "id": "PCH01_costa_der",
+      "zona_id": "PCH01",
+      "zona_nombre": "Punta Chame",
+      "tipo_punto": "costa_derecha",
+      "lat": 8.6131416,
+      "lng": -79.641636,
+      "provincias": "Panama Oeste",
+      "region": "Pacifico",
+      "activo": true
+    },
+    {
+      "id": "PCH01_interior",
+      "zona_id": "PCH01",
+      "zona_nombre": "Punta Chame",
+      "tipo_punto": "interior",
+      "lat": 8.4659255,
+      "lng": -79.7760053,
+      "provincias": "Panama Oeste",
+      "region": "Pacifico",
+      "activo": true
+    },
+    
+    {
+      "id": "GCH01_costa_izq",
+      "zona_id": "GCH01",
+      "zona_nombre": "Golfo Chiriqui",
+      "tipo_punto": "costa_izquierda",
+      "lat": 8.1648609,
+      "lng": -82.5926085,
+      "provincias": "Chiriqui",
+      "region": "Pacifico",
+      "activo": true
+    },
+    {
+      "id": "GCH01_costa_der",
+      "zona_id": "GCH01",
+      "zona_nombre": "Golfo Chiriqui",
+      "tipo_punto": "costa_derecha",
+      "lat": 8.0409397,
+      "lng": -82.3623209,
+      "provincias": "Chiriqui",
+      "region": "Pacifico",
+      "activo": true
+    },
+    {
+      "id": "GCH01_interior",
+      "zona_id": "GCH01",
+      "zona_nombre": "Golfo Chiriqui",
+      "tipo_punto": "interior",
+      "lat": 8.1254383,
+      "lng": -82.4808981,
+      "provincias": "Chiriqui",
+      "region": "Pacifico",
+      "activo": true
+    }
+  ],
+  
+  "schedules": {
+    "madrugada_critica": {
+      "cron": "0 9 * * *",
+      "hora_utc": "09:00",
+      "hora_panama": "04:00 AM",
+      "descripcion": "Momento critico decision pescadores"
+    },
+    "mediodia_seguimiento": {
+      "cron": "0 17 * * *",
+      "hora_utc": "17:00",
+      "hora_panama": "12:00 PM",
+      "descripcion": "Actualizacion pescadores en mar"
+    },
+    "nocturna_planificacion": {
+      "cron": "0 23 * * *",
+      "hora_utc": "23:00",
+      "hora_panama": "06:00 PM",
+      "descripcion": "Planificacion para el dia siguiente"
+    }
+  }
+}

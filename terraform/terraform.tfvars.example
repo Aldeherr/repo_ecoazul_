@@ -1,0 +1,46 @@
+###############################################################################
+# terraform.tfvars.example — EcoAzul TFM
+#
+# INSTRUCCIONES:
+#   1. Copia este archivo: cp terraform.tfvars.example terraform.tfvars
+#   2. Rellena TODOS los valores marcados con <...>
+#   3. NUNCA subas terraform.tfvars a git (ya está en .gitignore)
+###############################################################################
+
+# ── Azure Service Principal ──────────────────────────────────────────────────
+# Obtener con: az ad sp create-for-rbac --name "sp-ecoazul-tfm" --role Contributor
+# --scopes /subscriptions/<subscription_id>
+
+subscription_id = "<tu-azure-subscription-id>"
+client_id       = "<app-id-del-service-principal>"
+client_secret   = "<secret-del-service-principal>"
+tenant_id       = "<tu-tenant-id>"
+
+# ── Proyecto ─────────────────────────────────────────────────────────────────
+
+project_name = "ecoazul"
+environment  = "dev"
+location     = "westus3"
+
+# ── Databricks Personal Access Token ─────────────────────────────────────────
+# Obtener DESPUÉS de que el workspace esté creado:
+# Databricks UI → Settings → Developer → Access tokens → Generate new token
+# (Dejar en blanco en el primer apply, rellenar en el segundo apply)
+
+databricks_token = "<tu-databricks-personal-access-token>"
+
+# ── APIs Externas ─────────────────────────────────────────────────────────────
+# StormGlass: https://stormglass.io → Dashboard → API Key
+# Marea:      https://marea.ooo → Settings → API Token
+# Copernicus: https://marine.copernicus.eu → Crear cuenta gratuita → My Account
+
+stormglass_api_key = "<tu-stormglass-api-key>"
+marea_api_token    = "<tu-marea-api-token>"
+copernicus_user    = "<tu-email-copernicus>"
+copernicus_pass    = "<tu-password-copernicus>"
+
+# ── Opcionales (mantener defaults para TFM) ───────────────────────────────────
+
+# storage_replication          = "LRS"
+databricks_cluster_node_type   = "Standard_DS4_v2"
+# databricks_spark_version       = "14.3.x-cpu-ml-scala2.12"

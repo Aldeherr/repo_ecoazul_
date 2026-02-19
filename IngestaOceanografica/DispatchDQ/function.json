@@ -1,0 +1,13 @@
+{
+  "scriptFile": "__init__.py",
+  "bindings": [
+    {
+      "name": "event",
+      "type": "eventHubTrigger",
+      "direction": "in",
+      "eventHubName": "bronze-landed",
+      "connection": "EVENTHUB_CONNECTION",
+      "consumerGroup": "$Default"
+    }
+  ]
+}

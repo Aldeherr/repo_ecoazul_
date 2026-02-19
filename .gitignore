@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Databricks exports
+*.mf
+
+# Terraform
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.tfstate.lock.info
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfvars
+terraform/*.auto.tfvars
+terraform/terraform.tfplan
+terraform/crash.log
+
+# Secrets y entorno local
+.env
+.env.*
+!.env.example
+
+# Herramientas de desarrollo
+.vscode/
+
+# Documentación interna y material de referencia
+SPECS/
+REF_CODIGOS/
+
+# Archivos temporales
+*.tmp
+intro_content.txt
+
+# OS
+.DS_Store
+Thumbs.db
