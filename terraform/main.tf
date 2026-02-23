@@ -193,11 +193,12 @@ resource "azurerm_service_plan" "functions" {
 }
 
 # =============================================================================
-# AZURE FUNCTION APP — IngestStormGlass
+# AZURE FUNCTION APP — IngestaOceanografica
+# Contiene las 3 funciones del proyecto: IngestStormGlass, IngestMarea, DispatchDQ
 # =============================================================================
 
-resource "azurerm_linux_function_app" "ingest_stormglass" {
-  name                       = "func-${var.project_name}-stormglass-${local.suffix}"
+resource "azurerm_linux_function_app" "ingest_oceanografica" {
+  name                       = "func-${var.project_name}-ingesta-${local.suffix}"
   resource_group_name        = azurerm_resource_group.main.name
   location                   = azurerm_resource_group.main.location
   service_plan_id            = azurerm_service_plan.functions.id
@@ -218,120 +219,38 @@ resource "azurerm_linux_function_app" "ingest_stormglass" {
 
   app_settings = {
     # Configuración básica del runtime
-    FUNCTIONS_WORKER_RUNTIME       = "python"
-    FUNCTIONS_EXTENSION_VERSION    = var.function_runtime_version
-    AzureWebJobsStorage            = azurerm_storage_account.main.primary_connection_string
-    WEBSITE_RUN_FROM_PACKAGE       = "1"
-
-    # Referencias a Key Vault (la managed identity necesita permisos — ver abajo)
-    STORMGLASS_API_KEY    = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.stormglass_api_key.id})"
-    EVENTHUB_CONN_STR     = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.eventhub_conn.id})"
-    STORAGE_CONN_STR      = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.storage_conn.id})"
-    STORAGE_ACCOUNT_NAME  = azurerm_storage_account.main.name
-    CONFIG_CONTAINER      = "config"
-    CONFIG_BLOB_NAME      = "config_apis.json"
-    EVENTHUB_NAME         = azurerm_eventhub.bronze_landed.name
-  }
-}
-
-# Permiso Key Vault → Function IngestStormGlass (managed identity)
-resource "azurerm_key_vault_access_policy" "func_stormglass" {
-  key_vault_id = azurerm_key_vault.main.id
-  tenant_id    = azurerm_linux_function_app.ingest_stormglass.identity[0].tenant_id
-  object_id    = azurerm_linux_function_app.ingest_stormglass.identity[0].principal_id
-
-  secret_permissions = ["Get", "List"]
-}
-
-# =============================================================================
-# AZURE FUNCTION APP — IngestMarea
-# =============================================================================
-
-resource "azurerm_linux_function_app" "ingest_marea" {
-  name                       = "func-${var.project_name}-marea-${local.suffix}"
-  resource_group_name        = azurerm_resource_group.main.name
-  location                   = azurerm_resource_group.main.location
-  service_plan_id            = azurerm_service_plan.functions.id
-  storage_account_name       = azurerm_storage_account.main.name
-  storage_account_access_key = azurerm_storage_account.main.primary_access_key
-  tags                       = var.tags
-
-  identity {
-    type = "SystemAssigned"
-  }
-
-  site_config {
-    application_stack {
-      python_version = "3.12"
-    }
-  }
-
-  app_settings = {
     FUNCTIONS_WORKER_RUNTIME    = "python"
     FUNCTIONS_EXTENSION_VERSION = var.function_runtime_version
     AzureWebJobsStorage         = azurerm_storage_account.main.primary_connection_string
     WEBSITE_RUN_FROM_PACKAGE    = "1"
 
-    MAREA_API_TOKEN       = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.marea_api_token.id})"
-    EVENTHUB_CONN_STR     = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.eventhub_conn.id})"
-    STORAGE_CONN_STR      = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.storage_conn.id})"
-    STORAGE_ACCOUNT_NAME  = azurerm_storage_account.main.name
-    CONFIG_CONTAINER      = "config"
-    CONFIG_BLOB_NAME      = "config_apis.json"
-    EVENTHUB_NAME         = azurerm_eventhub.bronze_landed.name
+    # API Keys (IngestStormGlass e IngestMarea via Key Vault)
+    STORMGLASS_API_KEY = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.stormglass_api_key.id})"
+    MAREA_API_TOKEN    = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.marea_api_token.id})"
+
+    # Event Hub (compartido por las 3 funciones)
+    EVENTHUB_CONN_STR = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.eventhub_conn.id})"
+    EVENTHUB_NAME     = azurerm_eventhub.bronze_landed.name
+
+    # Storage (IngestStormGlass e IngestMarea)
+    STORAGE_CONN_STR     = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.storage_conn.id})"
+    STORAGE_ACCOUNT_NAME = azurerm_storage_account.main.name
+    CONFIG_CONTAINER     = "config"
+    CONFIG_BLOB_NAME     = "config_apis.json"
+
+    # Databricks (DispatchDQ — dispara el job de calidad de datos)
+    DATABRICKS_HOST = "https://${azurerm_databricks_workspace.main.workspace_url}"
+    DATABRICKS_TOKEN = var.databricks_token
+    # DQ_JOB_ID se actualiza manualmente tras crear el Job en Databricks UI
+    DQ_JOB_ID = "0"
   }
 }
 
-resource "azurerm_key_vault_access_policy" "func_marea" {
+# Permiso Key Vault → Function App IngestaOceanografica (managed identity)
+resource "azurerm_key_vault_access_policy" "func_ingesta" {
   key_vault_id = azurerm_key_vault.main.id
-  tenant_id    = azurerm_linux_function_app.ingest_marea.identity[0].tenant_id
-  object_id    = azurerm_linux_function_app.ingest_marea.identity[0].principal_id
-
-  secret_permissions = ["Get", "List"]
-}
-
-# =============================================================================
-# AZURE FUNCTION APP — DispatchDQ (EventHub trigger → Databricks job)
-# =============================================================================
-
-resource "azurerm_linux_function_app" "dispatch_dq" {
-  name                       = "func-${var.project_name}-dq-${local.suffix}"
-  resource_group_name        = azurerm_resource_group.main.name
-  location                   = azurerm_resource_group.main.location
-  service_plan_id            = azurerm_service_plan.functions.id
-  storage_account_name       = azurerm_storage_account.main.name
-  storage_account_access_key = azurerm_storage_account.main.primary_access_key
-  tags                       = var.tags
-
-  identity {
-    type = "SystemAssigned"
-  }
-
-  site_config {
-    application_stack {
-      python_version = "3.12"
-    }
-  }
-
-  app_settings = {
-    FUNCTIONS_WORKER_RUNTIME    = "python"
-    FUNCTIONS_EXTENSION_VERSION = var.function_runtime_version
-    AzureWebJobsStorage         = azurerm_storage_account.main.primary_connection_string
-    WEBSITE_RUN_FROM_PACKAGE    = "1"
-
-    EVENTHUB_CONN_STR     = azurerm_eventhub_namespace_authorization_rule.listen_send.primary_connection_string
-    EVENTHUB_NAME         = azurerm_eventhub.bronze_landed.name
-    DATABRICKS_HOST       = "https://${azurerm_databricks_workspace.main.workspace_url}"
-    DATABRICKS_TOKEN      = var.databricks_token
-    # DQ_JOB_ID se configura manualmente después de crear el Job en Databricks
-    DQ_JOB_ID             = "0"
-  }
-}
-
-resource "azurerm_key_vault_access_policy" "func_dq" {
-  key_vault_id = azurerm_key_vault.main.id
-  tenant_id    = azurerm_linux_function_app.dispatch_dq.identity[0].tenant_id
-  object_id    = azurerm_linux_function_app.dispatch_dq.identity[0].principal_id
+  tenant_id    = azurerm_linux_function_app.ingest_oceanografica.identity[0].tenant_id
+  object_id    = azurerm_linux_function_app.ingest_oceanografica.identity[0].principal_id
 
   secret_permissions = ["Get", "List"]
 }
@@ -348,11 +267,7 @@ resource "azurerm_databricks_workspace" "main" {
   managed_resource_group_name = "rg-${var.project_name}-databricks-managed"
   tags                        = var.tags
 
-  custom_parameters {
-    storage_account_name     = local.sa_name
-    storage_account_sku_name = "Standard_LRS"
-    virtual_network_id       = null  # VNET injection opcional — null = Databricks-managed VNET
-  }
+  # custom_parameters omitido — Databricks gestiona su propio storage account (DBFS) con nombre único
 }
 
 # =============================================================================
@@ -367,7 +282,10 @@ resource "databricks_cluster" "main" {
   autotermination_minutes = 30
 
   # Single node para TFM (reduce coste). En prod usar autoscale.
-  num_workers = 0
+  # SINGLE_USER requerido por Unity Catalog — NO_ISOLATION no está permitido en este workspace.
+  data_security_mode = "SINGLE_USER"
+  runtime_engine     = "PHOTON"
+  num_workers        = 0
   spark_conf = {
     "spark.databricks.cluster.profile" = "singleNode"
     "spark.master"                     = "local[*]"
@@ -381,11 +299,19 @@ resource "databricks_cluster" "main" {
     "project"       = "EcoAzul"
   }
 
-  libraries {
+  library {
     pypi { package = "copernicusmarine" }
+  }
+  library {
     pypi { package = "pandas" }
+  }
+  library {
     pypi { package = "pyarrow" }
+  }
+  library {
     pypi { package = "azure-eventhub" }
+  }
+  library {
     pypi { package = "azure-storage-blob" }
   }
 }
@@ -394,24 +320,10 @@ resource "databricks_cluster" "main" {
 # DATABRICKS — Secret Scope vinculado a Key Vault
 # =============================================================================
 
-resource "databricks_secret_scope" "keyvault" {
-  name = "keyvault-scope"
-
-  keyvault_metadata {
-    resource_id = azurerm_key_vault.main.id
-    dns_name    = azurerm_key_vault.main.vault_uri
-  }
-}
-
-# Permiso Key Vault → Databricks Workspace (para el secret scope)
-resource "azurerm_key_vault_access_policy" "databricks" {
-  key_vault_id = azurerm_key_vault.main.id
-  tenant_id    = data.azurerm_client_config.current.tenant_id
-  # El object_id del Databricks workspace se obtiene de la managed identity
-  object_id    = azurerm_databricks_workspace.main.storage_account_identity[0].principal_id
-
-  secret_permissions = ["Get", "List"]
-}
+# NOTA: El secret scope de Key Vault se crea manualmente (ver README sección 2.2).
+# Requiere autenticación AAD que el provider PAT no soporta.
+# NOTA: El access policy de Databricks → Key Vault se configura manualmente en Azure Portal.
+# Key Vault → Access policies → Add → buscar "AzureDatabricks" → permisos Get y List en Secrets.
 
 # =============================================================================
 # DATABRICKS — Notebooks upload (19 notebooks del proyecto)
@@ -421,117 +333,107 @@ resource "azurerm_key_vault_access_policy" "databricks" {
 resource "databricks_notebook" "dq_bronze" {
   path     = "/EcoAzul/1_BRONZE/AUDIT/01_data_quality_bronze"
   language = "PYTHON"
-  source   = "${path.module}/../1_BRONZE/1_BRONZE/AUDIT/01_data_quality_bronze.py"
+  source   = "${path.module}/../1_BRONZE/AUDIT/01_data_quality_bronze.py"
 }
 
 resource "databricks_notebook" "dq_bronze_batch" {
   path     = "/EcoAzul/1_BRONZE/AUDIT/01_data_quality_bronze_batch"
   language = "PYTHON"
-  source   = "${path.module}/../1_BRONZE/1_BRONZE/AUDIT/01_data_quality_bronze_batch.py"
+  source   = "${path.module}/../1_BRONZE/AUDIT/01_data_quality_bronze_batch.py"
 }
 
 resource "databricks_notebook" "bronze_file_landed" {
   path     = "/EcoAzul/1_BRONZE/AUDIT/03_bronze_file_landed"
   language = "PYTHON"
-  source   = "${path.module}/../1_BRONZE/1_BRONZE/AUDIT/03_bronze_file_landed.py"
+  source   = "${path.module}/../1_BRONZE/AUDIT/03_bronze_file_landed.py"
 }
 
 resource "databricks_notebook" "update_schema_contracts" {
   path     = "/EcoAzul/1_BRONZE/AUDIT/00_UPDATE_SCHEMA_CONTRACTS"
   language = "PYTHON"
-  source   = "${path.module}/../1_BRONZE/1_BRONZE/AUDIT/00_UPDATE_SCHEMA_CONTRACTS.py"
+  source   = "${path.module}/../1_BRONZE/AUDIT/00_UPDATE_SCHEMA_CONTRACTS.py"
 }
 
 # -- BRONZE: COPERNICUS --
 resource "databricks_notebook" "copernicus_forecast" {
   path     = "/EcoAzul/1_BRONZE/COPERNICUS/1_FORECAST_DAILY_COPERNICUS"
   language = "PYTHON"
-  source   = "${path.module}/../1_BRONZE/1_BRONZE/COPERNICUS/1_forecast_daily_copernicus.py"
+  source   = "${path.module}/../1_BRONZE/COPERNICUS/1_forecast_daily_copernicus.py"
 }
 
 resource "databricks_notebook" "copernicus_historico" {
   path     = "/EcoAzul/1_BRONZE/COPERNICUS/2_HISTORICO_COPERNICUS"
   language = "PYTHON"
-  source   = "${path.module}/../1_BRONZE/1_BRONZE/COPERNICUS/2_HISTORICO_COPERNICUS.py"
+  source   = "${path.module}/../1_BRONZE/COPERNICUS/2_HISTORICO_COPERNICUS.py"
 }
 
-resource "databricks_notebook" "copernicus_backfill" {
-  path     = "/EcoAzul/1_BRONZE/COPERNICUS/3_HISTORICO_BACKFILL"
-  language = "PYTHON"
-  source   = "${path.module}/../1_BRONZE/1_BRONZE/COPERNICUS/3_HISTORICO_BACKFILL.py"
-}
 
 # -- SILVER --
 resource "databricks_notebook" "setup_uc_silver" {
   path     = "/EcoAzul/2_SILVER/00_setup_uc_silver"
   language = "PYTHON"
-  source   = "${path.module}/../2_SILVER/2_SILVER/00_setup_uc_silver.py"
+  source   = "${path.module}/../2_SILVER/00_setup_uc_silver.py"
 }
 
 resource "databricks_notebook" "dim_zonas" {
   path     = "/EcoAzul/2_SILVER/01_dim_zonas"
   language = "PYTHON"
-  source   = "${path.module}/../2_SILVER/2_SILVER/01_dim_zonas.py"
+  source   = "${path.module}/../2_SILVER/01_dim_zonas.py"
 }
 
 resource "databricks_notebook" "dim_puntos" {
   path     = "/EcoAzul/2_SILVER/02_dim_puntos_muestreo"
   language = "PYTHON"
-  source   = "${path.module}/../2_SILVER/2_SILVER/02_dim_puntos_muestreo.py"
+  source   = "${path.module}/../2_SILVER/02_dim_puntos_muestreo.py"
 }
 
 resource "databricks_notebook" "silver_stormglass" {
   path     = "/EcoAzul/2_SILVER/04_silver_fact_stormglass"
   language = "PYTHON"
-  source   = "${path.module}/../2_SILVER/2_SILVER/04_silver_fact_stormglass.py"
+  source   = "${path.module}/../2_SILVER/04_silver_fact_stormglass.py"
 }
 
 resource "databricks_notebook" "silver_marea" {
   path     = "/EcoAzul/2_SILVER/05_silver_fact_marea"
   language = "PYTHON"
-  source   = "${path.module}/../2_SILVER/2_SILVER/05_silver_fact_marea.py"
+  source   = "${path.module}/../2_SILVER/05_silver_fact_marea.py"
 }
 
 resource "databricks_notebook" "silver_copernicus" {
   path     = "/EcoAzul/2_SILVER/06_silver_fact_copernicus"
   language = "PYTHON"
-  source   = "${path.module}/../2_SILVER/2_SILVER/06_silver_fact_copernicus.py"
+  source   = "${path.module}/../2_SILVER/06_silver_fact_copernicus.py"
 }
 
 # -- GOLD --
 resource "databricks_notebook" "gold_forecast_zona_hora" {
   path     = "/EcoAzul/3_GOLD/01_gold_forecast_zona_hora"
   language = "PYTHON"
-  source   = "${path.module}/../3_GOLD/3_GOLD/01_gold_forecast_zona_hora.py"
+  source   = "${path.module}/../3_GOLD/01_gold_forecast_zona_hora.py"
 }
 
 resource "databricks_notebook" "gold_condiciones_actuales" {
   path     = "/EcoAzul/3_GOLD/02_gold_condiciones_actuales_zona"
   language = "PYTHON"
-  source   = "${path.module}/../3_GOLD/3_GOLD/02_gold_condiciones_actuales_zona.py"
+  source   = "${path.module}/../3_GOLD/02_gold_condiciones_actuales_zona.py"
 }
 
 resource "databricks_notebook" "gold_features_ml" {
   path     = "/EcoAzul/3_GOLD/03_gold_features_ml"
   language = "PYTHON"
-  source   = "${path.module}/../3_GOLD/3_GOLD/03_gold_features_ml.py"
+  source   = "${path.module}/../3_GOLD/03_gold_features_ml.py"
 }
 
-resource "databricks_notebook" "diagnostico_copernicus" {
-  path     = "/EcoAzul/3_GOLD/00_DIAGNOSTICO_COPERNICUS_JOIN"
-  language = "PYTHON"
-  source   = "${path.module}/../3_GOLD/3_GOLD/00_DIAGNOSTICO_COPERNICUS_JOIN.py"
-}
 
 # -- ML --
 resource "databricks_notebook" "train_risk_model" {
   path     = "/EcoAzul/4_ML/01_train_risk_model"
   language = "PYTHON"
-  source   = "${path.module}/../4_ML/4_ML/01_train_risk_model.py"
+  source   = "${path.module}/../4_ML/01_train_risk_model.py"
 }
 
 resource "databricks_notebook" "score_risk_model" {
   path     = "/EcoAzul/4_ML/02_score_risk_model"
   language = "PYTHON"
-  source   = "${path.module}/../4_ML/4_ML/02_score_risk_model.py"
+  source   = "${path.module}/../4_ML/02_score_risk_model.py"
 }

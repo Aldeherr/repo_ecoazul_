@@ -50,19 +50,9 @@ output "databricks_workspace_id" {
   value       = azurerm_databricks_workspace.main.workspace_id
 }
 
-output "function_stormglass_url" {
-  description = "URL de la Function App IngestStormGlass"
-  value       = "https://${azurerm_linux_function_app.ingest_stormglass.default_hostname}"
-}
-
-output "function_marea_url" {
-  description = "URL de la Function App IngestMarea"
-  value       = "https://${azurerm_linux_function_app.ingest_marea.default_hostname}"
-}
-
-output "function_dq_url" {
-  description = "URL de la Function App DispatchDQ"
-  value       = "https://${azurerm_linux_function_app.dispatch_dq.default_hostname}"
+output "function_ingesta_url" {
+  description = "URL de la Function App IngestaOceanografica (IngestStormGlass + IngestMarea + DispatchDQ)"
+  value       = "https://${azurerm_linux_function_app.ingest_oceanografica.default_hostname}"
 }
 
 output "databricks_cluster_id" {

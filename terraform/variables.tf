@@ -71,13 +71,13 @@ variable "databricks_token" {
 variable "databricks_cluster_node_type" {
   description = "Tipo de nodo para el cluster de Databricks"
   type        = string
-  default     = "Standard_DS3_v2"
+  default     = "Standard_D4s_v3"
 }
 
 variable "databricks_spark_version" {
-  description = "Runtime de Databricks. Usa LTS con ML para tener scikit-learn preinstalado."
+  description = "Runtime de Databricks. 17.3 LTS = Spark 4.0.0, Scala 2.13, compatible con Photon."
   type        = string
-  default     = "14.3.x-cpu-ml-scala2.12"
+  default     = "17.3.x-scala2.13"
 }
 
 # ── Secrets de APIs externas ─────────────────────────────────────────────────

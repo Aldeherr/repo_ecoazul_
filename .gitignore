@@ -11,6 +11,8 @@ env/
 *.mf
 
 # Terraform
+*.tfstate
+*.tfstate.*
 terraform/*.tfstate
 terraform/*.tfstate.*
 terraform/*.tfstate.lock.info
@@ -19,6 +21,8 @@ terraform/.terraform.lock.hcl
 terraform/terraform.tfvars
 terraform/*.auto.tfvars
 terraform/terraform.tfplan
+terraform/tfplan
+terraform/*.tfplan
 terraform/crash.log
 
 # Secrets y entorno local
@@ -32,10 +36,14 @@ terraform/crash.log
 # Documentación interna y material de referencia
 SPECS/
 REF_CODIGOS/
+captures/
 
 # Archivos temporales
 *.tmp
 intro_content.txt
+
+# Datos locales
+*.csv
 
 # OS
 .DS_Store

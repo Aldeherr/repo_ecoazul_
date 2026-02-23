@@ -42,5 +42,6 @@ copernicus_pass    = "<tu-password-copernicus>"
 # ── Opcionales (mantener defaults para TFM) ───────────────────────────────────
 
 # storage_replication          = "LRS"
-databricks_cluster_node_type   = "Standard_DS4_v2"
+databricks_cluster_node_type   = "Standard_D4s_v3"
+databricks_spark_version       = "17.3.x-scala2.13"
 # databricks_spark_version       = "14.3.x-cpu-ml-scala2.12"

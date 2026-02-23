@@ -54,14 +54,14 @@ TFM_PROYECT/
 # Login en Azure
 az login
 
-# Crear Service Principal con permisos Contributor en tu suscripción
+# Crear Service Principal con permisos Contributor en la suscripción
 az ad sp create-for-rbac \
   --name "sp-ecoazul-tfm" \
   --role Contributor \
   --scopes /subscriptions/$(az account show --query id -o tsv)
 ```
 
-El comando devuelve JSON con `appId`, `password`, `tenant`. Estos son tus credenciales de Terraform.
+El comando devuelve JSON con `appId`, `password`, `tenant`. Estos son las credenciales de Terraform.
 
 ### 1.2 Configurar variables
 
@@ -71,11 +71,11 @@ cd terraform
 # Copiar el template
 cp terraform.tfvars.example terraform.tfvars
 
-# Editar con tus valores reales
-# (usa VS Code, Notepad, o cualquier editor)
+# Completar con los valores reales
+# (VS Code, Notepad, o cualquier editor de texto)
 ```
 
-Rellena en `terraform.tfvars`:
+Completar en `terraform.tfvars`:
 - `subscription_id` — `az account show --query id -o tsv`
 - `client_id` — `appId` del Service Principal
 - `client_secret` — `password` del Service Principal
@@ -85,13 +85,25 @@ Rellena en `terraform.tfvars`:
 
 ### 1.3 Aplicar Terraform (Primera pasada — sin Databricks)
 
-> **Importante:** El primer apply crea el workspace de Databricks pero no puede
-> configurarlo aún (necesita el token que aún no existe). Ejecuta solo los recursos
-> de Azure primero.
+> **Importante:** El primer apply crea el workspace de Databricks pero **no puede
+> configurarlo aún** (el token de Databricks todavía no existe). El provider
+> `databricks` de Terraform falla si no tiene un host y token válidos, incluso
+> durante un apply con `-target`. Solución: declara valores de entorno ficticios
+> antes de ejecutar el primer apply para que el provider se inicialice sin error.
+> Después del apply puedes eliminarlos.
 
 ```bash
 cd terraform
 terraform init
+
+# -- Paso previo OBLIGATORIO: evita el error de inicialización del provider databricks --
+# Linux/macOS:
+export DATABRICKS_HOST=https://placeholder.azuredatabricks.net
+export DATABRICKS_TOKEN=placeholder_first_apply
+
+# Windows PowerShell:
+# $env:DATABRICKS_HOST="https://placeholder.azuredatabricks.net"
+# $env:DATABRICKS_TOKEN="placeholder_first_apply"
 
 # Primera pasada: solo infraestructura Azure (ignora recursos databricks_*)
 terraform apply -target=azurerm_resource_group.main \
@@ -100,6 +112,7 @@ terraform apply -target=azurerm_resource_group.main \
                 -target=azurerm_storage_container.marea \
                 -target=azurerm_storage_container.copernicus \
                 -target=azurerm_storage_container.config \
+                -target=azurerm_storage_container.functions_deploy \
                 -target=azurerm_key_vault.main \
                 -target=azurerm_key_vault_secret.stormglass_api_key \
                 -target=azurerm_key_vault_secret.marea_api_token \
@@ -113,9 +126,15 @@ terraform apply -target=azurerm_resource_group.main \
                 -target=azurerm_key_vault_secret.storage_conn \
                 -target=azurerm_service_plan.functions \
                 -target=azurerm_databricks_workspace.main
+
+# -- Elimina las variables de entorno temporales --
+# Linux/macOS:
+unset DATABRICKS_HOST && unset DATABRICKS_TOKEN
+# Windows PowerShell:
+# Remove-Item Env:DATABRICKS_HOST; Remove-Item Env:DATABRICKS_TOKEN
 ```
 
-Después del apply, anota la URL del workspace de Databricks:
+Después del apply, la URL del workspace de Databricks está disponible en:
 
 ```bash
 terraform output databricks_workspace_url
@@ -123,13 +142,36 @@ terraform output databricks_workspace_url
 
 ### 1.4 Generar Databricks PAT
 
-1. Abre la URL del workspace de Databricks en tu navegador
-2. Ve a: **Settings** (icono de persona arriba a la derecha) → **Developer** → **Access tokens**
-3. Haz clic en **Generate new token**
+1. Abrir la URL del workspace de Databricks en el navegador
+2. Navegar a: **Settings** (icono de persona arriba a la derecha) → **Developer** → **Access tokens**
+3. Seleccionar **Generate new token**
 4. Nombre: `terraform-token`, expiración: 90 días
-5. Copia el token generado
+5. Copiar el token generado
 
-### 1.5 Aplicar Terraform (Segunda pasada — Databricks completo)
+### 1.5 Configurar acceso Key Vault para AzureDatabricks (manual)
+
+> **Obligatorio antes del segundo apply.** El segundo apply crea el secret scope de
+> Databricks vinculado al Key Vault. Para que funcione, la aplicación `AzureDatabricks`
+> debe tener permisos de lectura sobre el Key Vault. Si este paso no se hace primero,
+> el apply fallará al crear el secret scope.
+
+1. En **Azure Portal** → buscar el recurso Key Vault `akv-ecoazul-*`
+2. En el menú izquierdo: **Access policies** → **Create**
+3. En **Permissions**: seleccionar `Get` y `List` bajo **Secret permissions**
+4. En **Principal**: buscar `AzureDatabricks` (aplicación enterprise de Azure Databricks, presente en todos los tenants)
+5. Confirmar con **Review + create** → **Create**
+
+### 1.6 Aplicar Terraform (Segunda pasada — Databricks completo)
+
+> **Configuración recomendada del cluster**:
+> - **Runtime:** Databricks 17.3 LTS — Apache Spark 4.0.0, Scala 2.13
+> - **VM:** `Standard_D4s_v3` (4 vCPUs, 16 GB RAM)
+> - **Modo:** Single Node
+> - **Photon Acceleration:** activado
+>
+> Si tu suscripción no tiene cuota para `Standard_D4s_v3` en `westus3`, solicita el
+> aumento en Azure Portal → Subscriptions → Usage + quotas, o cambia el valor de
+> `databricks_cluster_node_type` en `terraform.tfvars` por otra familia disponible.
 
 ```bash
 # Editar terraform.tfvars: agregar el databricks_token
@@ -139,7 +181,7 @@ terraform output databricks_workspace_url
 terraform apply
 ```
 
-Este apply sube los 11 notebooks al workspace y crea los 9 Databricks Workflows jobs con sus calendarios y dependencias.
+Este apply crea la Function App (con las 3 funciones del proyecto), el cluster de Databricks, sube los **17 notebooks** y crea el secret scope vinculado al Key Vault.
 
 ---
 
@@ -155,10 +197,10 @@ Los notebooks de Copernicus requieren tres librerías que no vienen en el runtim
 
 **Cómo instalarlas:**
 
-1. Databricks UI → **Compute** → selecciona el cluster → **Libraries**
+1. Databricks UI → **Compute** → seleccionar el cluster → **Libraries**
 2. **Install new** → fuente: **PyPI**
 3. Instalar en este orden: `copernicusmarine` → `netCDF4` → `xarray`
-4. Esperar a que el cluster las instale (estado: Installed) antes de ejecutar cualquier notebook de Copernicus
+4. Esperar a que el cluster complete la instalación (estado: Installed) antes de ejecutar cualquier notebook de Copernicus
 
 > Si los notebooks de Copernicus fallan con `ModuleNotFoundError`, la causa es siempre que alguna de estas tres librerías no está instalada en el cluster activo.
 
@@ -166,85 +208,149 @@ Los notebooks de Copernicus requieren tres librerías que no vienen en el runtim
 
 ## FASE 2 — Unity Catalog (manual, una sola vez)
 
-Unity Catalog requiere configuración a nivel de **Databricks Account** (no workspace).
-Terraform no puede hacerlo directamente — son 3 clics en la UI.
+### 2.1 Verificar metastore y crear catálogo principal
 
-### 2.1 Crear el Metastore
+Los workspaces Databricks Premium en Azure tienen Unity Catalog habilitado automáticamente
+con un metastore regional (`metastore_azure_westus3`) ya asignado. **No es necesario crear
+el metastore manualmente.**
 
-1. Ve a [accounts.azuredatabricks.net](https://accounts.azuredatabricks.net)
-2. Inicia sesión con tu cuenta de administrador de Databricks
-3. **Data** → **Create metastore**
-   - Name: `metastore-ecoazul`
-   - Region: `West US 3`
-   - Storage path: `abfss://unity-catalog@<storage_account_name>.dfs.core.windows.net/`
-     *(reemplaza `<storage_account_name>` con el valor de `terraform output storage_account_name`)*
-4. **Assign to workspace** → selecciona el workspace `adb-ecoazul-*`
+**Verificar que Unity Catalog está activo** (desde la carpeta `terraform/`):
+
+```bash
+curl -s -H "Authorization: Bearer $(grep databricks_token terraform.tfvars | cut -d'"' -f2)" "$(terraform output -raw databricks_workspace_url)/api/2.1/unity-catalog/catalogs"
+```
+
+Si devuelve catálogos `system` y `samples` → Unity Catalog activo. Continúa.
+
+**Crear el catálogo `adb_ecoazul`** desde la UI del workspace:
+
+1. Abrir el workspace de Databricks
+2. En el menú izquierdo, seleccionar **Catalog**
+3. En el panel Catalog, hacer clic en el botón **"+"** (arriba a la derecha del panel)
+4. Seleccionar **Create catalog**
+5. **Name:** `adb_ecoazul`
+6. **Storage location:** seleccionar la opción disponible en el desplegable — el nombre
+   corresponde al workspace y varía según el sufijo generado por Terraform
+   (ej. `adb-ecoazul-xxxxx`). Se obtiene con:
+   ```bash
+   terraform output databricks_workspace_url
+   ```
+   El sufijo al final de esa URL es el que aparecerá en el desplegable.
+7. Confirmar con **Create**
+
+> El catálogo debe llamarse exactamente `adb_ecoazul` — todos los notebooks
+> del proyecto usan ese nombre para referenciar schemas y tablas.
 
 ### 2.2 Configurar el Secret Scope en Databricks
 
+El Secret Scope se crea desde una URL especial del workspace. Los valores necesarios se obtienen desde la carpeta `terraform/`:
+
 ```bash
-# Crear el scope vinculado a Key Vault
-databricks secrets create-scope \
-  --scope keyvault-scope \
-  --scope-backend-type AZURE_KEYVAULT \
-  --resource-id $(terraform output -raw key_vault_name | xargs -I{} az keyvault show --name {} --query id -o tsv) \
-  --dns-name $(terraform output -raw key_vault_uri)
+# DNS Name del Key Vault
+az keyvault show --name $(terraform output -raw key_vault_name) --query properties.vaultUri -o tsv
+
+# Resource ID del Key Vault
+az keyvault show --name $(terraform output -raw key_vault_name) --query id -o tsv
+
+# URL del workspace (para construir la URL del formulario)
+terraform output databricks_workspace_url
 ```
 
-O desde la UI de Databricks: **Settings** → **Secrets** → **Create scope**
+A continuación, abrir en el navegador:
+
+```
+https://<databricks_workspace_url>/#secrets/createScope
+```
+
+Completar el formulario con los siguientes valores:
+
+| Campo | Valor |
+|---|---|
+| **Scope Name** | `keyvault-scope` |
+| **Manage Principal** | `All Users` |
+| **DNS Name** | resultado del comando `vaultUri` (ej. `https://akv-ecoazul-xxxxx.vault.azure.net/`) |
+| **Resource ID** | resultado del comando `id` (ej. `/subscriptions/.../resourceGroups/.../providers/Microsoft.KeyVault/vaults/akv-ecoazul-xxxxx`) |
+
+Confirmar con **Create**.
 
 ### 2.3 Ejecutar notebooks de setup (una sola vez)
 
-Desde Databricks, ejecuta en este orden:
+Ejecutar los siguientes notebooks en Databricks en este orden:
 
 ```
 1. /EcoAzul/2_SILVER/00_setup_uc_silver      ← Crea catalog + schemas
 2. /EcoAzul/2_SILVER/01_dim_zonas            ← Carga 10 zonas de pesca
-3. /EcoAzul/2_SILVER/02_dim_puntos_muestreo  ← Carga 30 puntos de muestreo
-4. /EcoAzul/1_BRONZE/AUDIT/00_UPDATE_SCHEMA_CONTRACTS ← Registra schema fingerprints
+3. /EcoAzul/1_BRONZE/AUDIT/00_UPDATE_SCHEMA_CONTRACTS ← Registra schema fingerprints
+```
+
+### 2.4 *(Opcional)* Crear SAS token para `config-blob-sas` y cargar puntos de muestreo
+
+> **Este paso es opcional.** No es necesario para el esquema de Power BI ni para el dashboard principal. El notebook `02_dim_puntos_muestreo` queda disponible para conexiones o extensiones futuras del proyecto.
+
+El notebook `02_dim_puntos_muestreo` lee `puntos_muestreo.csv` del contenedor `config` usando un SAS token guardado en Key Vault como `config-blob-sas`.
+
+**Paso 1 — Subir archivos de configuración al contenedor `config`:**
+
+1. Azure Portal → **Storage accounts** → selecciona `st-ecoazul-...`
+2. Menú lateral → **Containers** → haz clic en `config`
+3. Botón **Upload** → selecciona los dos archivos y súbelos:
+   - `config_apis.json` (configuración de APIs para las Azure Functions)
+   - `puntos_muestreo.csv` (30 puntos de muestreo para el notebook Silver)
+
+**Paso 2 — Generar el SAS token del contenedor `config`:**
+
+1. En el mismo Storage Account, menú lateral → **Containers** → haz clic en los `...` del contenedor `config` → **Generate SAS**
+2. Configura:
+   - **Permissions:** Read, List
+   - **Expiry:** fecha en el futuro (ej. 1 año)
+3. Haz clic en **Generate SAS token and URL**
+4. Copia el valor del campo **Blob SAS token** (empieza por `?sv=...`)
+
+**Paso 3 — Guardar el SAS token en Key Vault:**
+
+1. Azure Portal → **Key vaults** → selecciona `akv-ecoazul-...`
+2. Menú lateral → **Secrets** → **Generate/Import**
+3. Configura:
+   - **Name:** `config-blob-sas`
+   - **Value:** pega el SAS token copiado (incluyendo el `?` inicial)
+4. Haz clic en **Create**
+
+**Paso 4 — Ejecutar el notebook desde Databricks:**
+
+```
+/EcoAzul/2_SILVER/02_dim_puntos_muestreo  ← Carga 30 puntos de muestreo
 ```
 
 ---
 
 ## FASE 3 — Desplegar Azure Functions
 
-### 3.1 Subir config_apis.json al Storage
+### 3.1 Desplegar la Function App
 
-```bash
-az storage blob upload \
-  --account-name $(terraform output -raw storage_account_name) \
-  --container-name config \
-  --name config_apis.json \
-  --file ../IngestaOceanografica/config_apis.json
-```
-
-### 3.2 Desplegar las Function Apps
+El proyecto `IngestaOceanografica/` contiene las 3 funciones (IngestStormGlass, IngestMarea, DispatchDQ) y se despliega en una sola Function App.
 
 ```bash
 cd ../IngestaOceanografica
 
-# IngestStormGlass
 func azure functionapp publish \
-  $(terraform -chdir=../terraform output -raw function_stormglass_url | sed 's|https://||' | sed 's|\..*||')
-
-# IngestMarea
-func azure functionapp publish \
-  $(terraform -chdir=../terraform output -raw function_marea_url | sed 's|https://||' | sed 's|\..*||')
+  $(terraform -chdir=../terraform output -raw function_ingesta_url | sed 's|https://||' | sed 's|\..*||')
 ```
 
-> **Alternativa más simple:** Desde Azure Portal → Function App → Deployment Center → GitHub / Local Git
+> **Alternativas de despliegue:**
+> - **Azure Portal** → Function App → Deployment Center → GitHub / Local Git
+> - **Visual Studio Code** *(método usado en este proyecto)* — instala la extensión [Azure Functions](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-azurefunctions), abre la carpeta `IngestaOceanografica/`, haz clic en el icono de Azure en la barra lateral → **Functions → Deploy to Function App...** → selecciona la Function App `func-ecoazul-ingesta-...`
 
 ---
 
 ## FASE 4 — Primera Ejecución del Pipeline
 
-Ejecuta los notebooks en este orden desde Databricks. A partir del segundo día el pipeline corre solo vía los 9 Workflows jobs que Terraform ya creó.
+Ejecuta los notebooks en este orden desde Databricks. A partir del segundo día el pipeline corre solo vía los 9 Workflows jobs (ver sección **Ejecución diaria** para crearlos).
 
 ```
 BRONZE — primera ingesta:
   1. 1_BRONZE/COPERNICUS/1_forecast_daily_copernicus   ← Copernicus 72h forecast
-  2. 1_BRONZE/COPERNICUS/2_historico_copernicus        ← Histórico del mes anterior
-                                                          (OBLIGATORIO antes del ML)
+  2. 1_BRONZE/COPERNICUS/2_historico_copernicus        ← Descarga históricos de Copernicus;
+                                                          estos datos alimentan el entrenamiento del modelo ML
   [Disparar manualmente las Azure Functions para StormGlass y Marea, o esperar
    a la próxima ronda del timer (04:00, 12:00 o 18:00 hora Panamá)]
 
@@ -275,13 +381,13 @@ ML:
 
 El dashboard usa **DirectQuery**: cada consulta va en tiempo real contra el SQL Warehouse de Databricks, garantizando que siempre muestra el run más reciente sin importar datos manualmente.
 
-1. Abre Power BI Desktop
-2. **Obtener datos** → busca **Azure Databricks**
-3. Servidor: `<databricks_workspace_url>` (del `terraform output databricks_workspace_url`)
-4. HTTP path del SQL Warehouse: Databricks → SQL Warehouses → tu warehouse → Connection details → HTTP path
+1. Abrir Power BI Desktop
+2. **Obtener datos** → buscar **Azure Databricks**
+3. Servidor: `<databricks_workspace_url>` (obtenido con `terraform output databricks_workspace_url`)
+4. HTTP path del SQL Warehouse: Databricks → SQL Warehouses → SQL Warehouse → Connection details → HTTP path
 5. Modo de conectividad: **DirectQuery**
-6. Autenticación: Personal Access Token (el mismo del paso 1.4)
-7. Navega a `adb_ecoazul` → schema `gold` → selecciona las tablas
+6. Autenticación: Personal Access Token (generado en el paso 1.4)
+7. Navegar a `adb_ecoazul` → schema `gold` → seleccionar las tablas
 
 Las cuatro páginas del dashboard leen de `adb_ecoazul.gold`:
 - `condiciones_actuales_zona` → semáforo SEGURO/PRECAUCIÓN/PELIGRO por zona
@@ -295,19 +401,34 @@ Las cuatro páginas del dashboard leen de `adb_ecoazul.gold`:
 
 ## Ejecución diaria (después del setup)
 
-Los 9 jobs de Databricks Workflows están definidos en `terraform/main.tf` y se crean automáticamente con el segundo `terraform apply`. No hay que configurarlos manualmente.
+Los 9 jobs de Databricks Workflows deben crearse **manualmente** desde la UI de Databricks
+una vez completadas las FASES 1, 2 y 3. No están definidos como recursos Terraform.
 
-| # | Job | Frecuencia | Hora Panamá |
-|---|---|---|---|
-| 0 | `dqb_bronze_validator` | Reactivo (EventHub) | — |
-| 1 | `forecast_daily_copernicus` | 1×/día | 21:43 (D−1) |
-| 2 | `historico_copernicus` | 1×/mes (día 8) | 21:43 |
-| 3 | `silver_refresh_copernicus` | 1×/día | 02:00 AM |
-| 4 | `silver_refresh_stormglass_marea` | 3×/día | 04:15 / 12:15 / 18:15 |
-| 5 | `gold_refresh` | 3×/día | 04:45 / 12:45 / 18:45 |
-| 6 | `features_ml` | 1×/día | 03:15 AM |
-| 7 | `ml_training` | 1×/semana (lunes) | 02:00 AM |
-| 8 | `ml_scoring` | 1×/día | 03:45 AM |
+> Crear los jobs antes de que el pipeline necesite correr en automático (día 2 en adelante).
+
+| # | Job | Notebook | Frecuencia | Hora Panamá (UTC) |
+|---|---|---|---|---|
+| 0 | `dqb_bronze_validator` | `1_BRONZE/AUDIT/01_data_quality_bronze` | Reactivo (EventHub) | — |
+| 1 | `forecast_daily_copernicus` | `1_BRONZE/COPERNICUS/1_forecast_daily_copernicus` | 1×/día | 21:43 (D−1) · `0 43 3 * * ?` |
+| 2 | `historico_copernicus` | `1_BRONZE/COPERNICUS/2_historico_copernicus` | 1×/mes (día 8) | 21:43 · `0 43 3 8 * ?` |
+| 3 | `silver_refresh_copernicus` | `2_SILVER/06_silver_fact_copernicus` | 1×/día | 02:00 AM · `0 0 8 * * ?` |
+| 4 | `silver_refresh_stormglass_marea` | `2_SILVER/04_silver_fact_stormglass` + `05_silver_fact_marea` | 3×/día | 04:15/12:15/18:15 · `0 15 9,17,23 * * ?` |
+| 5 | `gold_refresh` | `3_GOLD/01_gold_forecast_zona_hora` + `02` + `03` | 3×/día | 04:45/12:45/18:45 · `0 45 9,17,23 * * ?` |
+| 6 | `features_ml` | `3_GOLD/03_gold_features_ml` | 1×/día | 03:15 AM · `0 15 9 * * ?` |
+| 7 | `ml_training` | `4_ML/01_train_risk_model` | 1×/semana (lunes) | 02:00 AM · `0 0 8 ? * MON` |
+| 8 | `ml_scoring` | `4_ML/02_score_risk_model` | 1×/día | 03:45 AM · `0 45 9 * * ?` |
+
+**Cómo crear cada job:**
+
+1. Databricks UI → **Workflows** → **Create job**
+2. Nombre: el indicado en la columna **Job** de la tabla
+3. **Task**: tipo `Notebook`, seleccionar el notebook correspondiente del workspace `/EcoAzul/...`
+4. **Cluster**: seleccionar el cluster `cluster-ecoazul-main`
+5. **Schedule**: activar el schedule e introducir la expresión cron UTC de la tabla
+6. Confirmar con **Create**
+
+> Los jobs 4 (`silver_refresh_stormglass_marea`) y 5 (`gold_refresh`) tienen múltiples notebooks:
+> añádelos como tareas secuenciales dentro del mismo job usando **Add task**.
 
 Las Azure Functions disparan a las 04:00, 12:00 y 18:00 hora Panamá (`cron: 0 0 9,17,23 * * *` UTC).
 
@@ -325,7 +446,7 @@ Las Azure Functions disparan a las 04:00, 12:00 y 18:00 hora Panamá (`cron: 0 0
 | Databricks | 1 workspace | Multi-workspace + VNET |
 | Monitoring | Manual (logs Azure) | Azure Monitor + alertas |
 
-Para escalar, solo cambia en `terraform.tfvars`:
+Para escalar, modificar en `terraform.tfvars`:
 ```hcl
 storage_replication          = "GRS"     # LRS → GRS
 databricks_cluster_node_type = "Standard_DS4_v2"
